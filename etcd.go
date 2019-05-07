@@ -7,7 +7,7 @@ import (
 	"time"
 
 	etcd "go.etcd.io/etcd/clientv3"
-	mvccpb "go.etcd.io/etcd/mvcc/mvccpb"
+	mvccpb "go.etcd.io/etcd/v3/mvcc/mvccpb"
 
 	"go.etcd.io/etcd/pkg/transport"
 )
