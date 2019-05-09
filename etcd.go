@@ -7,7 +7,6 @@ import (
 	"time"
 
 	etcd "go.etcd.io/etcd/clientv3"
-	mvccpb "go.etcd.io/etcd/v3/mvcc/mvccpb"
 
 	"go.etcd.io/etcd/pkg/transport"
 )
@@ -86,8 +85,15 @@ func (e *EtcdWrapper) Subscribe(ctx context.Context, prefix string, tag interfac
 
 	suChan := make(chan *SettingUpdate, SettingUpdateQueueSize)
 
-	processUpdate := func(op SettingUpdateKind, kv *mvccpb.KeyValue) {
+	// Do initial Fetch
+	rsp, err := e.kv.Get(ctx, prefix, etcd.WithPrefix())
+	if err != nil {
+		return nil, err
+	}
 
+	for _, kv := range rsp.Kvs {
+
+		op := SettingKindInitial
 		su := &SettingUpdate{
 			Key: string(kv.Key),
 			// if updated key is /a/b/c and substring under watch was a then
@@ -99,17 +105,6 @@ func (e *EtcdWrapper) Subscribe(ctx context.Context, prefix string, tag interfac
 		}
 
 		suChan <- su
-
-	}
-
-	// Do initial Fetch
-	rsp, err := e.kv.Get(ctx, prefix, etcd.WithPrefix())
-	if err != nil {
-		return nil, err
-	}
-
-	for _, kv := range rsp.Kvs {
-		processUpdate(SettingKindInitial, kv)
 	}
 
 	// Watch async for any future change
@@ -126,8 +121,20 @@ func (e *EtcdWrapper) Subscribe(ctx context.Context, prefix string, tag interfac
 					op = SettingKindDeleted
 				}
 
-				processUpdate(op, event.Kv)
-			}
+				kv := event.Kv
+
+				su := &SettingUpdate{
+					Key: string(kv.Key),
+					// if updated key is /a/b/c and substring under watch was a then
+					// RelativeKey would be /b/c
+					RelativeKey: strings.Replace(string(kv.Key), prefix, "", -1),
+					Value:       string(kv.Value),
+					Kind:        op,
+					Tag:         tag,
+				}
+		
+				suChan <- su
+					}
 		}
 	}()
 

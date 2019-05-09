@@ -29,7 +29,9 @@ type ConfigProvider struct {
 type SettingChangeHandler func(update *conman.SettingUpdate)
 
 // Watch should be used to watch under a static or fixed key
-func (cp *ConfigProvider) Watch(setting string, handler SettingChangeHandler) error {
+func (cp *ConfigProvider) Watch(setting string, handler SettingChangeHandler, tag interface{}) error {
+	fmt.Println("Entered Watching", setting)
+
 	_, found := cp.watchList.Load(setting)
 	// If found any previously registered setting with same key, return error
 	if found {
@@ -38,7 +40,7 @@ func (cp *ConfigProvider) Watch(setting string, handler SettingChangeHandler) er
 
 	ctx, cancelContext := context.WithCancel(context.Background())
 
-	updates, err := cp.provider.Subscribe(ctx, setting, nil)
+	updates, err := cp.provider.Subscribe(ctx, setting, tag)
 	if err != nil {
 		// cancel the context if there was an error while subscribing
 		cancelContext()
@@ -47,6 +49,7 @@ func (cp *ConfigProvider) Watch(setting string, handler SettingChangeHandler) er
 
 	// Watch for setting updates and invoke hander
 	go func() {
+		fmt.Println("Looking for updates", setting)
 		for update := range updates {
 			handler(update)
 		}
@@ -66,8 +69,9 @@ func (cp *ConfigProvider) WatchBucketWise(setting string, handler SettingChangeH
 }
 
 func (cp *ConfigProvider) syncWatchList() {
+	fmt.Println("In Watchlist")
 	for _, bucket := range cp.buckets {
-
+		fmt.Println("For ", bucket)
 		cp.bucketedKeys.Range(func(bucketedKey interface{}, handler interface{}) bool {
 			// if bucket is bravo, bucketedKey is echo
 			// key would be bravo/key
@@ -77,7 +81,7 @@ func (cp *ConfigProvider) syncWatchList() {
 			// if not found in watchlist, remove from watch list
 			if !found {
 				// Ignoring errors
-				cp.Watch(key, handler.(SettingChangeHandler))
+				cp.Watch(key, handler.(SettingChangeHandler), bucket)
 			}
 
 			return true
@@ -90,7 +94,7 @@ func (cp *ConfigProvider) syncWatchList() {
 func New(cp conman.ConfigProvider) *ConfigProvider {
 	p := &ConfigProvider{
 		provider:         cp,
-		bucketListPrefix: "bucket",
+		bucketListPrefix: "buckets",
 	}
 
 	bucketHandler := func(update *conman.SettingUpdate) {
@@ -109,7 +113,7 @@ func New(cp conman.ConfigProvider) *ConfigProvider {
 	}
 
 	// Watch for dynamic buckets
-	p.Watch(p.bucketListPrefix, bucketHandler)
+	p.Watch(p.bucketListPrefix, bucketHandler, nil)
 	return p
 }
 
