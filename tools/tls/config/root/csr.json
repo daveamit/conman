@@ -1,0 +1,17 @@
+{
+  "CN": "root",
+  "hosts": [
+    "localhost"
+  ],
+  "key": {
+    "algo": "ecdsa",
+    "size": 384
+  },
+  "names": [
+    {
+      "O": "conman",
+      "OU": "testing",
+      "L": "ci"
+    }
+  ]
+}

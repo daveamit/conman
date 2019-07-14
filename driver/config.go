@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/daveamit/conman"
+	"conman"
 )
 
 // ConfigProvider is
@@ -30,8 +30,6 @@ type SettingChangeHandler func(update *conman.SettingUpdate)
 
 // Watch should be used to watch under a static or fixed key
 func (cp *ConfigProvider) Watch(setting string, handler SettingChangeHandler, tag interface{}) error {
-	fmt.Println("Entered Watching", setting)
-
 	_, found := cp.watchList.Load(setting)
 	// If found any previously registered setting with same key, return error
 	if found {
@@ -47,9 +45,8 @@ func (cp *ConfigProvider) Watch(setting string, handler SettingChangeHandler, ta
 		return err
 	}
 
-	// Watch for setting updates and invoke hander
+	// Watch for setting updates and invoke handler
 	go func() {
-		fmt.Println("Looking for updates", setting)
 		for update := range updates {
 			handler(update)
 		}
@@ -69,9 +66,7 @@ func (cp *ConfigProvider) WatchBucketWise(setting string, handler SettingChangeH
 }
 
 func (cp *ConfigProvider) syncWatchList() {
-	fmt.Println("In Watchlist")
 	for _, bucket := range cp.buckets {
-		fmt.Println("For ", bucket)
 		cp.bucketedKeys.Range(func(bucketedKey interface{}, handler interface{}) bool {
 			// if bucket is bravo, bucketedKey is echo
 			// key would be bravo/key

@@ -1,0 +1,21 @@
+{
+  "signing": {
+    "default": {
+        "ca_constraint": {
+          "is_ca": true,
+          "max_path_len": 0,
+          "max_path_len_zero": true
+        },
+        "usages": [
+          "signing",
+          "key encipherment",
+          "server auth",
+          "client auth",
+          "digital signature",
+          "cert sign",
+          "crl sign"
+        ],
+       "expiry": "1h"
+    }
+  }
+}

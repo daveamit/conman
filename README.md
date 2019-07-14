@@ -1,5 +1,10 @@
+[![Build Status](https://cloud.drone.io/api/badges/daveamit/conman/status.svg)](https://cloud.drone.io/daveamit/conman)
+[![Go Report Card](https://goreportcard.com/badge/github.com/daveamit/conman)](https://goreportcard.com/report/github.com/daveamit/conman)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/daveamit/conman/blob/master/LICENSE)
+<a href='https://github.com/jpoles1/gopherbadger' target='_blank'>![gopherbadger-tag-do-not-edit](https://img.shields.io/badge/Go%20Coverage-100%25-brightgreen.svg?longCache=true&style=flat)</a>
+
 # conman
-CONfiguration MANager backed by ETCD
+CONfiguration MANager
 
 # Preface
 Configurations are a integral part of any software, things get more complicated when the software we are talking about has a `microservice` based architecture.
@@ -9,16 +14,12 @@ With microservices, each service has to have its own configuration, it has to be
 Configuration `must` not be treaded as another piece of data because it is not. Also, `configuration` are `owned` by different set of user than the `data`, for example, suppose `identity` services needs a configuration called `password-hash-key`. The service will use this to hash passwords and hence is quite sensitive information and has to be `owned` by the a different `identity` source. It would not be wise to store it in same database or pass it as cli arguments (or environment variables), also a service in charge of sending email should not be able to `read` such information.
 
 # Concept
-> (tool) -> (authentication/authorization) -> (storage) -> (service)
+> (tool) -> (authentication/authorization) -> (storage) -> (push) -> (service)
 
 That's it, in a nutshell. It translates to
 
-> (etcdctl) -> (etcd) -> (service)
-
-Don't get me wrong, `etcdctl` is awesome tool, but it lacks certain like help me validate my configuration schema, it is not that driven from file, it does not provide an intuitive way to map users to configuration from a single call.
-
 Hence,
-> (conman) -> (etcd) -> (service)
+> (conman) -> (storage) -> (conman-driver) (service)
 
 # What's in the box
 * `REST`ful server (Feature set exposed as `REST`ful api)
@@ -30,7 +31,7 @@ Hence,
 
 # Feature set
 ## Authentication / Authorization
-* Initialize and reset the `etcd`
+* Initialize and reset the `storage`
 * Login / Logout
 ## Manage settings
 * Define configuration setting schema

@@ -1,0 +1,19 @@
+{
+  "CN": "etcd",
+  "hosts": [
+    "localhost",
+    "etcd",
+    "etcd.kendra"
+  ],
+  "key": {
+    "algo": "ecdsa",
+    "size": 384
+  },
+  "names": [
+    {
+      "O": "kendra",
+      "OU": "infrastructure",
+      "L": "development-only"
+    }
+  ]
+}
