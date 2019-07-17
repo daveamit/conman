@@ -6,7 +6,7 @@ require (
 	github.com/GeertJohan/go.rice v1.0.0 // indirect
 	github.com/cloudflare/cfssl v0.0.0-20190627231140-2001f384ec4f // indirect
 	github.com/coreos/bbolt v1.3.3 // indirect
-	github.com/coreos/etcd v3.3.13+incompatible // indirect
+	github.com/coreos/etcd v3.3.13+incompatible
 	github.com/coreos/go-semver v0.3.0 // indirect
 	github.com/coreos/go-systemd v0.0.0-20190620071333-e64a0ec8b42a // indirect
 	github.com/coreos/pkg v0.0.0-20180928190104-399ea9e2e55f // indirect
@@ -34,6 +34,7 @@ require (
 	github.com/mattn/goreman v0.2.1 // indirect
 	github.com/pkg/errors v0.8.1 // indirect
 	github.com/prometheus/client_golang v1.0.0 // indirect
+	github.com/prometheus/common v0.4.1
 	github.com/soheilhy/cmux v0.1.4 // indirect
 	github.com/tmc/grpc-websocket-proxy v0.0.0-20190109142713-0ad062ec5ee5 // indirect
 	github.com/xiang90/probing v0.0.0-20190116061207-43a291ad63a2 // indirect

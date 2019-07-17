@@ -6,7 +6,7 @@ type User interface {
 	Name() string
 	Email() string
 	Mobile() string
-	Meta() string
+	Meta() map[string]string
 	Roles() ([]Role, error)
 	AddRole(name string) error
 	RemoveRole(name string) error

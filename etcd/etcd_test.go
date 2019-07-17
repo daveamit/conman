@@ -5,20 +5,23 @@ import (
 	"conman/driver"
 	. "conman/etcd"
 	"context"
+	"errors"
 	"fmt"
 	"log"
+	"net/url"
 	"os"
 	"sync"
 	"testing"
 	"time"
 
+	t "github.com/coreos/etcd/pkg/transport"
 	etcdCli "go.etcd.io/etcd/clientv3"
 	"go.etcd.io/etcd/embed"
 	"go.etcd.io/etcd/pkg/transport"
 )
 
 var dir = "default.etcd"
-var endpoint = "http://127.0.0.1:2379"
+var endpoint = "https://localhost:2379"
 var cli *etcdCli.Client
 var etcd *Wrapper
 
@@ -28,30 +31,28 @@ func TestMain(m *testing.M) {
 	defer os.RemoveAll(dir)
 	var err error
 
-	serverTLSConfig := &transport.TLSInfo{
-		CAFile:   "../tools/tls/bundle.pem",
-		CertFile: "../tools/tls/certs/services/etcd.pem",
-		KeyFile:  "../tools/tls/certs/services/etcd-key.pem",
+	clientTLSConfig := &transport.TLSInfo{
+		CAFile:        "../tools/tls/bundle.pem",
+		CertFile:      "../tools/tls/certs/root.pem",
+		TrustedCAFile: "../tools/tls/bundle.pem",
+		KeyFile:       "../tools/tls/certs/root-key.pem",
+		// ClientCertAuth: true,
 	}
-	serverTlsInfo, err := serverTLSConfig.ClientConfig()
+
+	clientConfig, err := clientTLSConfig.ClientConfig()
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-
 	cli, err = etcdCli.New(etcdCli.Config{
 		Endpoints:   []string{endpoint},
 		DialTimeout: time.Second * 5,
-		TLS:         serverTlsInfo,
+		TLS:         clientConfig,
+		// Username:    "root",
+		// Password:    "week-password",
 	})
 
-	clientTLSConfig := &transport.TLSInfo{
-		CAFile:   "../tools/tls/bundle.pem",
-		CertFile: "../tools/tls/certs/users/ci.pem",
-		KeyFile:  "../tools/tls/certs/users/ci-key.pem",
-	}
-
-	etcd, err = NewEtcd(ConnDetails{
+	etcd, err = NewEtcd(&ConnDetails{
 		Endpoint:  endpoint,
 		TLSConfig: clientTLSConfig,
 	})
@@ -72,7 +73,24 @@ func TestMain(m *testing.M) {
 func setupEtcd(dir string) *embed.Etcd {
 	cfg := embed.NewConfig()
 	cfg.Dir = dir
+
+	acURL, err := url.Parse(endpoint)
+	if err != nil {
+		log.Fatal(err)
+	}
+	cfg.ACUrls = []url.URL{*acURL}
+	cfg.LCUrls = []url.URL{*acURL}
+
 	// tlsInfo := transport.TLSInfo{}
+	clientTLSConfig := t.TLSInfo{
+		CAFile:         "../tools/tls/bundle.pem",
+		CertFile:       "../tools/tls/certs/services/etcd.pem",
+		KeyFile:        "../tools/tls/certs/services/etcd-key.pem",
+		TrustedCAFile:  "../tools/tls/bundle.pem",
+		ClientCertAuth: true,
+	}
+
+	cfg.ClientTLSInfo = clientTLSConfig
 
 	e, err := embed.StartEtcd(cfg)
 	if err != nil {
@@ -104,7 +122,7 @@ func TestWrongTLSInfoMustFail(t *testing.T) {
 		KeyFile:  "../tools/tls/certs/users/invalid.pem",
 	}
 
-	_, err := NewEtcd(ConnDetails{
+	_, err := NewEtcd(&ConnDetails{
 		Endpoint:  endpoint,
 		TLSConfig: clientTLSConfig,
 	})
@@ -216,4 +234,160 @@ func TestAssertDriverCompatibility(t *testing.T) {
 	}
 
 	wg.Wait()
+}
+
+func TestInitializeAndReset(t *testing.T) {
+	ctx := context.Background()
+
+	iv := &conman.InitializationVector{
+		Secret: "secret",
+	}
+	err := etcd.Initialize(ctx, iv)
+	if err != nil {
+		t.Error("Failed to initialize", err)
+	}
+
+	users, err := cli.UserList(ctx)
+	if err != nil {
+		t.Error("Failed to retrive list of users", err)
+	}
+
+	foundRoot := false
+	for _, user := range users.Users {
+		if user == "root" {
+			foundRoot = true
+			break
+		}
+	}
+
+	if !foundRoot {
+		t.Error("Root user not found")
+	}
+
+	rsp, err := cli.Get(ctx, "$")
+	if err != nil {
+		t.Error("Failed to read $", err)
+	}
+
+	if rsp.Count == 0 {
+		t.Error("Partially initialized, $ not found")
+	}
+
+	// Test reset
+	err = etcd.Reset(ctx, false)
+	if err != nil {
+		t.Error("Failed to reset", err)
+	}
+
+	users, err = cli.UserList(ctx)
+	if err != nil {
+		t.Error("Failed to retrive list of users", err)
+	}
+
+	foundRoot = false
+	for _, user := range users.Users {
+		if user == "root" {
+			foundRoot = true
+			break
+		}
+	}
+
+	if foundRoot {
+		t.Error("Root user not cleared")
+	}
+
+	rsp, err = cli.Get(ctx, "$")
+	if err != nil {
+		t.Error("Failed to read $", err)
+	}
+
+	if rsp.Count != 0 {
+		t.Error("$ not cleared")
+	}
+
+}
+
+func TestInitializeErrorHandling(t *testing.T) {
+	auth := newAuthMock()
+	kv := newMockKV()
+	etcd := NewFakeWrapper(kv, auth, nil)
+
+	ctx := context.Background()
+	iv := &conman.InitializationVector{}
+
+	auth.roleAdd = errors.New("RoleAdd is disabled")
+	err := etcd.Initialize(ctx, iv)
+	if err != auth.roleAdd {
+		t.Error("Must fail to initialize if roleAdd fails")
+	}
+
+	auth.roleAdd = nil
+	auth.userAdd = errors.New("UserAdd is disabled")
+	err = etcd.Initialize(ctx, iv)
+	if err != auth.userAdd {
+		t.Error("Must fail to initialize if UserAdd fails")
+	}
+
+	auth.userAdd = nil
+	auth.userGrantRole = errors.New("UserGrantRole is disabled")
+	err = etcd.Initialize(ctx, iv)
+	if err != auth.userGrantRole {
+		t.Error("Must fail to initialize if UserGrantRole fails")
+	}
+
+	auth.userGrantRole = nil
+	kv.put = errors.New("Put is disabled")
+	err = etcd.Initialize(ctx, iv)
+	if err != kv.put {
+		t.Error("Must fail to initialize if Put fails")
+	}
+
+	kv.put = nil
+	auth.authEnable = errors.New("AuthEnable is disabled")
+	err = etcd.Initialize(ctx, iv)
+	if err != auth.authEnable {
+		t.Error("Must fail to initialize if AuthEnable fails")
+	}
+}
+
+func TestResetErrorHandling(t *testing.T) {
+	auth := newAuthMock()
+	kv := newMockKV()
+	etcd := NewFakeWrapper(kv, auth, nil)
+
+	ctx := context.Background()
+
+	auth.authDisable = errors.New("Auth is disabled")
+	err := etcd.Reset(ctx, false)
+	if err != auth.authDisable {
+		t.Error("Must fail to reset if AuthDisable fails")
+	}
+
+	auth.authDisable = nil
+	kv.delete = errors.New("Put is disabled")
+	err = etcd.Reset(ctx, false)
+	if err != kv.delete {
+		t.Error("Must fail to reset if delete fails")
+	}
+
+	kv.delete = nil
+	auth.userRevokeRole = errors.New("UserRevokeRole is disabled")
+	err = etcd.Reset(ctx, false)
+	if err != auth.userRevokeRole {
+		t.Error("Must fail to reset if userRevokeRole fails")
+	}
+
+	auth.userRevokeRole = nil
+	auth.roleDelete = errors.New("RoleDelete is disabled")
+	err = etcd.Reset(ctx, false)
+	if err != auth.roleDelete {
+		t.Error("Must fail to reset if roleDelete fails")
+	}
+
+	auth.roleDelete = nil
+	auth.userDelete = errors.New("userDelete is disabled")
+	err = etcd.Reset(ctx, false)
+	if err != auth.userDelete {
+		t.Error("Must fail to reset if userDelete fails")
+	}
 }
