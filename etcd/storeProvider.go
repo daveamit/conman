@@ -3,7 +3,6 @@ package etcd
 import (
 	"conman"
 	"context"
-	"errors"
 
 	"go.uber.org/zap"
 )
@@ -98,7 +97,7 @@ func (w *Wrapper) Get(ctx context.Context, key string) (string, error) {
 	}
 
 	if rsp.Count == 0 {
-		return "", errors.New("Key not found")
+		return "", conman.ErrKeyNotFound
 	}
 
 	value := rsp.Kvs[0].Value
