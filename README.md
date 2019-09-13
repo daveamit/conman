@@ -1,7 +1,7 @@
 [![Build Status](https://cloud.drone.io/api/badges/daveamit/conman/status.svg)](https://cloud.drone.io/daveamit/conman)
 [![Go Report Card](https://goreportcard.com/badge/github.com/daveamit/conman)](https://goreportcard.com/report/github.com/daveamit/conman)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/daveamit/conman/blob/master/LICENSE)
-<a href='https://github.com/jpoles1/gopherbadger' target='_blank'>![gopherbadger-tag-do-not-edit](https://img.shields.io/badge/Go%20Coverage-78%25-brightgreen.svg?longCache=true&style=flat)</a>
+<a href='https://github.com/jpoles1/gopherbadger' target='_blank'>![gopherbadger-tag-do-not-edit](https://img.shields.io/badge/Go%20Coverage-91%25-brightgreen.svg?longCache=true&style=flat)</a>
 
 # conman
 CONfiguration MANager

@@ -2,6 +2,7 @@ package etcd_test
 
 import (
 	"conman"
+	"conman/crypto"
 	"conman/driver"
 	. "conman/etcd"
 	"context"
@@ -25,7 +26,11 @@ var endpoint = "https://localhost:2379"
 var cli *etcdCli.Client
 var etcd *Wrapper
 
+var password = []byte("password")
+var cryptoProvider = crypto.NewAes(password, password)
+
 func TestMain(m *testing.M) {
+
 	e := setupEtcd(dir)
 	os.RemoveAll(dir)
 	defer os.RemoveAll(dir)
@@ -239,12 +244,24 @@ func TestAssertDriverCompatibility(t *testing.T) {
 func TestInitializeAndReset(t *testing.T) {
 	ctx := context.Background()
 
-	iv := &conman.InitializationVector{
-		Secret: "secret",
-	}
-	err := etcd.Initialize(ctx, iv)
+	err := etcd.Initialize(ctx, cryptoProvider)
 	if err != nil {
 		t.Error("Failed to initialize", err)
+	}
+
+	// Test get / set
+	key := "some-key"
+	value := "some-value"
+	err = etcd.Set(ctx, key, value)
+	if err != nil {
+		t.Error("Failed to set", err)
+	}
+	v, err := etcd.Get(ctx, key)
+	if err != nil {
+		t.Error("Failed to get", err)
+	}
+	if v != value {
+		t.Error("Got a different value")
 	}
 
 	users, err := cli.UserList(ctx)
@@ -313,38 +330,37 @@ func TestInitializeErrorHandling(t *testing.T) {
 	etcd := NewFakeWrapper(kv, auth, nil)
 
 	ctx := context.Background()
-	iv := &conman.InitializationVector{}
 
 	auth.roleAdd = errors.New("RoleAdd is disabled")
-	err := etcd.Initialize(ctx, iv)
+	err := etcd.Initialize(ctx, cryptoProvider)
 	if err != auth.roleAdd {
 		t.Error("Must fail to initialize if roleAdd fails")
 	}
 
 	auth.roleAdd = nil
 	auth.userAdd = errors.New("UserAdd is disabled")
-	err = etcd.Initialize(ctx, iv)
+	err = etcd.Initialize(ctx, cryptoProvider)
 	if err != auth.userAdd {
 		t.Error("Must fail to initialize if UserAdd fails")
 	}
 
 	auth.userAdd = nil
 	auth.userGrantRole = errors.New("UserGrantRole is disabled")
-	err = etcd.Initialize(ctx, iv)
+	err = etcd.Initialize(ctx, cryptoProvider)
 	if err != auth.userGrantRole {
 		t.Error("Must fail to initialize if UserGrantRole fails")
 	}
 
 	auth.userGrantRole = nil
 	kv.put = errors.New("Put is disabled")
-	err = etcd.Initialize(ctx, iv)
+	err = etcd.Initialize(ctx, cryptoProvider)
 	if err != kv.put {
 		t.Error("Must fail to initialize if Put fails")
 	}
 
 	kv.put = nil
 	auth.authEnable = errors.New("AuthEnable is disabled")
-	err = etcd.Initialize(ctx, iv)
+	err = etcd.Initialize(ctx, cryptoProvider)
 	if err != auth.authEnable {
 		t.Error("Must fail to initialize if AuthEnable fails")
 	}

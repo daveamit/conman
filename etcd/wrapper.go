@@ -1,6 +1,7 @@
 package etcd
 
 import (
+	"conman"
 	"crypto/tls"
 	"strings"
 	"time"
@@ -16,6 +17,7 @@ type Wrapper struct {
 	kv      etcdCli.KV
 	auth    etcdCli.Auth
 	watcher etcdCli.Watcher
+	crypto  conman.CryptoProvider
 }
 
 // NewFakeWrapper make Wrapper for testing purpose

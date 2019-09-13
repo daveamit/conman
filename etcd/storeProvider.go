@@ -3,6 +3,7 @@ package etcd
 import (
 	"conman"
 	"context"
+	"errors"
 
 	"go.uber.org/zap"
 )
@@ -11,8 +12,8 @@ import (
 // this might take time if its populated with data
 // 1. If $ is already there return with error
 // 2. Create root user
-// 3. Store iv at $
-func (w *Wrapper) Initialize(ctx context.Context, iv *conman.InitializationVector) error {
+// 3. Cache crypto Provider
+func (w *Wrapper) Initialize(ctx context.Context, crypto conman.CryptoProvider) error {
 	log := conman.Log().With(zap.String("@", "Initialize"))
 	_, err := w.auth.RoleAdd(ctx, "root")
 	if err != nil {
@@ -44,6 +45,9 @@ func (w *Wrapper) Initialize(ctx context.Context, iv *conman.InitializationVecto
 		log.With(zap.Error(err)).Error("Failed to lock")
 		return err
 	}
+
+	// crypto is cached so that it can be used to read / write to encrypt / decrypt
+	w.crypto = crypto
 
 	return nil
 }
@@ -87,10 +91,38 @@ func (w *Wrapper) Reset(ctx context.Context, force bool) error {
 
 // Get reads a key, it decrypts it if encrypted
 func (w *Wrapper) Get(ctx context.Context, key string) (string, error) {
-	return "", nil
+
+	rsp, err := w.kv.Get(ctx, key)
+	if err != nil {
+		return "", err
+	}
+
+	if rsp.Count == 0 {
+		return "", errors.New("Key not found")
+	}
+
+	value := rsp.Kvs[0].Value
+	if w.crypto != nil {
+		value, err = w.crypto.Decrypt(value)
+		if err != nil {
+			return "", err
+		}
+	}
+
+	return string(value), nil
 }
 
 // Set sets value for given key, encrypts if secret is provided
 func (w *Wrapper) Set(ctx context.Context, key string, val string) error {
+	var err error
+	value := []byte(val)
+	if w.crypto != nil {
+		value, err = w.crypto.Encrypt(value)
+		if err != nil {
+			return err
+		}
+	}
+
+	w.kv.Put(ctx, key, string(value))
 	return nil
 }
