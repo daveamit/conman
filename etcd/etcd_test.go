@@ -252,6 +252,11 @@ func TestInitializeAndReset(t *testing.T) {
 	// Test get / set
 	key := "some-key"
 	value := "some-value"
+	_, err = etcd.Get(ctx, key)
+	if err == nil {
+		t.Error("Must fail to get")
+	}
+
 	err = etcd.Set(ctx, key, value)
 	if err != nil {
 		t.Error("Failed to set", err)
